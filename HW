@@ -1,0 +1,301 @@
+import matplotlib.pyplot as plt
+import requests
+import json
+import PySimpleGUI as sg
+import io
+import os
+from PIL import Image
+import sys
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+
+
+response = requests.get('http://raw.githubusercontent.com/matteocontrini/comuni-json/master/comuni.json')
+
+dati = json.loads(response.text)
+
+def estrai_pop_italia(dati):
+    ret = []
+    for d in dati:
+        ret.append(d['popolazione'])
+    return sum(ret)
+
+def estrai_info_pop_zona(dati):
+    ret = {'Sud':0,'Nord':0,'Centro':0,'Isole':0,'Nord-est':0,'Nord-ovest':0}
+    for d in dati:
+        zona = d['zona']['nome']
+        pop = d['popolazione']
+        ret[zona] += d['popolazione']
+    return ret
+
+def estrai_info_pop_regioni(dati):
+    ret = {}
+    for d in dati:
+        if d['regione']['nome'] not in ret:
+            ret[d['regione']['nome']] = d['popolazione']
+        else:
+            ret[d['regione']['nome']] += d['popolazione']
+    return ret
+
+def estrai_info_pop_provincie(dati):
+    ret = {}
+    for d in dati:
+        if d['provincia']['nome'] not in ret:
+            ret[d['provincia']['nome']] = d['popolazione']
+        else:
+            ret[d['provincia']['nome']] += d['popolazione']
+    return ret
+
+def estrai_info_pop_comune(dati,comune):
+    for d in dati:
+        if d['nome'] == comune:
+            return d['popolazione']
+
+def estrai_lista_regioni(dati):
+    l = []
+    for d in dati:
+        if d['regione']['nome'] not in l:
+            l.append(d['regione']['nome'])
+    return l
+
+def estrai_lista_provincie(dati):
+    l = []
+    for d in dati:
+        if d['provincia']['nome'] not in l:
+            l.append(d['provincia']['nome'])
+    return l
+
+def estrai_lista_comuni(dati):
+    l = []
+    for d in dati:
+        if d['nome'] not in l:
+            l.append(d['nome'])
+    return l
+
+def estrai_regione(dati,nome):
+    l = []
+    for d in dati:
+        if d['regione']['nome'] == nome:
+            l.append(d)
+    return l
+
+def estrai_provincia(l,nome):
+    a = []
+    for d in l:
+        if d['provincia']['nome'] == nome:
+            a.append(d)
+    return a
+
+def estrai_pop_zona(l):
+    a = {}
+    for d in l:
+        zona = d['zona']['nome']
+        pop = d['popolazione']
+        if zona not in a:
+            a[zona] = pop
+        else:
+            a[zona] += pop
+    return a
+
+def estrai_pop_regione(l):
+    a = {}
+    for d in l:
+        regione = d['regione']['nome']
+        pop = d['popolazione']
+        if regione not in a:
+            a[regione] = pop
+        else:
+            a[regione] += pop
+    return a
+
+def estrai_pop_comune(l):
+    a = {}
+    for d in l:
+        comune = d['nome']
+        pop = d['popolazione']
+        if comune not in a:
+            a[comune]=pop
+        else:
+            a[comune]+=pop
+    return a
+
+def estrai_pop_provincia(l):
+    a = {}
+    for d in l:
+        provincia = d['sigla']
+        pop = d['popolazione']
+        if provincia not in a:
+            a[provincia] = pop
+        else:
+            a[provincia] += pop
+    return a
+
+def torta_pop(d):
+    x = []
+    y = []
+    for key in d:
+        x.append(key)
+        y.append(d[key])
+    plt.pie(y,labels = x)
+    plt.title('Grafico a Torta Popolazione')
+    return plt.gcf()
+
+def draw_figure(canvas,figure):
+    figure_canvas_agg = FigureCanvasTkAgg(figure,canvas)
+    figure_canvas_agg.draw()
+    figure_canvas_agg.get_tk_widget().pack(side='top',fill='both',expand=0)
+    return figure_canvas_agg
+
+def delete_fig_agg(fig_agg):
+    fig_agg.get_tk_widget().forget()
+    plt.close('all')
+
+def zona_visible():
+    window['-ZONA-'].update(visible=True)
+    window['-ZONA1-'].update(visible=True)
+    window['-ZONA2-'].update(visible=True)
+    window['-ZONA3-'].update(visible=True)
+    window['-ZONA4-'].update(visible=True)
+    window['-ZONA5-'].update(visible=True)
+
+def zona_invisible():
+    window['-ZONA-'].update(visible=False)
+    window['-ZONA1-'].update(visible=False)
+    window['-ZONA2-'].update(visible=False)
+    window['-ZONA3-'].update(visible=False)
+    window['-ZONA4-'].update(visible=False)
+    window['-ZONA5-'].update(visible=False)
+
+def regione_visible():
+    window['-REG-'].update(visible=True)
+    window['-REG1-'].update(visible=True)
+
+def regione_invisible():
+    window['-REG-'].update(visible=False)
+    window['-REG1-'].update(visible=False)
+
+def provincia_visible():
+    window['-PRO-'].update(visible=True)
+    window['-PRO1-'].update(visible=True)
+
+def provincia_invisible():
+    window['-PRO-'].update(visible=False)
+    window['-PRO1-'].update(visible=False)
+    
+def comune_visible():
+    window['-COM-'].update(visible=True)
+    window['-COM1-'].update(visible=True)
+
+def comune_invisible():
+    window['-COM-'].update(visible=False)
+    window['-COM1-'].update(visible=False)    
+
+    
+pop_zona = estrai_info_pop_zona(dati)
+pop_regione = estrai_info_pop_regioni(dati)
+pop_provincia = estrai_info_pop_provincie(dati)
+lista_comuni = estrai_lista_comuni(dati)
+
+sg.theme('BluePurple')
+
+sg.Frame('',[[sg.Text(f'Line {i}')] for i in range(5)],key='COL',border_width=1)
+
+column_1_layout = [
+    [sg.Text('Statistiche Popolazione Italiana Per Zona, Regione, Provincia o Comune')],
+    [sg.Button('Popolazione per Zona'),sg.Button('Popolazione per Regione'),sg.Button('Popolazione per Provincia Nella Tua Regione'),sg.Button('Popolazione per Comune Nella Tua Provincia')],
+    [sg.Text('La tua regione:'),sg.Input(key='-IN1-')],
+    [sg.Text('La tua provincia:'),sg.Input(key='-IN2-')],
+    [sg.Text('Il tuo Comune:'),sg.Input(key='-IN3-')],
+    [sg.Text(key='-ER-')],
+    [sg.Canvas(size=(512,512),key='-CANVAS-')],
+    [sg.Text(key='-TEXT-',justification='c')],
+    [sg.Exit()]]
+inp1 = None
+column_2_layout = [[sg.Text('Statistiche',background_color='#F0F8FF')],
+                [sg.Text('Totale Popolazione Italiana: ' + str(estrai_pop_italia(dati)),background_color='#F0F8FF')],
+                [sg.Text('Totale Popolazione Per Zona: ',key = '-ZONA-',background_color='#F0F8FF',visible=False),sg.Text('Popolazione Nella Tua Regione:',background_color='#F0F8FF',key='-REG-',visible=False),
+                sg.Text('Popolazione Nella Tua Provincia:',background_color='#F0F8FF',key='-PRO-',visible=False),sg.Text('Popolazione Nel Tuo Comune:',background_color='#F0F8FF',key='-COM-',visible=False)],
+                [sg.Text('Popolazione Sud: ' + str(pop_zona['Sud']),key= '-ZONA1-',background_color='#F0F8FF',visible=False),sg.Text(background_color='#F0F8FF',key='-REG1-',visible=False),
+                sg.Text(background_color='#F0F8FF',key='-PRO1-',visible=False),sg.Text(background_color='#F0F8FF',key='-COM1-',visible=False)],
+                [sg.Text('Popolazione Centro: ' + str(pop_zona['Centro']),key= '-ZONA2-',background_color='#F0F8FF',visible=False)],
+                [sg.Text('Popolazione Nord-Est: ' + str(pop_zona['Nord-est']),key= '-ZONA3-',background_color='#F0F8FF',visible=False)],
+                [sg.Text('Popolazione Nord-Ovest: ' + str(pop_zona['Nord-ovest']),key= '-ZONA4-',background_color='#F0F8FF',visible=False)],
+                [sg.Text('Popolazione Isole: ' + str(pop_zona['Isole']),key= '-ZONA5-',background_color='#F0F8FF',visible=False)]]
+
+layout = [[sg.Frame('',[[sg.Column(column_2_layout,size=(246,700),background_color='#F0F8FF',element_justification='c')]],key='COL',border_width=1),sg.Frame('',[[sg.Column(column_1_layout,element_justification='c')]],key='COL1',border_width=1)]]
+
+window = sg.Window('Homework',layout,finalize=True)
+
+
+
+
+
+fig_agg = None
+while True:
+    event,values = window.read()
+    if event == 'Exit' or event == sg.WIN_CLOSED:
+        break
+    inp1 = values['-IN1-']
+    if event == 'Popolazione per Zona':
+        zona_visible()
+        regione_invisible()
+        provincia_invisible()
+        comune_invisible()
+        if fig_agg is not None:
+            delete_fig_agg(fig_agg)
+        fig_agg = draw_figure(window['-CANVAS-'].TKCanvas,torta_pop(estrai_pop_zona(dati)))
+        window['-TEXT-'].update('Popolazione Italiana Divisa in Zone')
+    elif event == 'Popolazione per Regione':
+        zona_invisible()
+        regione_visible()
+        provincia_invisible()
+        comune_invisible()
+        if fig_agg is not None:
+            delete_fig_agg(fig_agg)
+        fig_agg = draw_figure(window['-CANVAS-'].TKCanvas,torta_pop(estrai_pop_regione(dati)))
+        window['-TEXT-'].update('Popolazione Italiana Divisa in Regioni')
+        if inp1 in pop_regione:
+            window['-REG1-'].update(str(pop_regione[inp1]))
+    elif event == 'Popolazione per Provincia Nella Tua Regione':
+        zona_invisible()
+        regione_invisible()
+        provincia_visible()
+        comune_invisible()
+        inp = values['-IN1-']
+        inp1 = values['-IN2-']
+        if len(inp) == 0:
+            window['-ER-'].update('Nessuna Regione Selezionata!')
+        elif inp not in estrai_lista_regioni(dati) and len(inp) != 0:
+            window['-ER-'].update('Seleziona una Regione Valida!')
+        elif inp in estrai_lista_regioni(dati):
+            if fig_agg is not None:
+                delete_fig_agg(fig_agg)
+            l = estrai_regione(dati,inp)
+            fig_agg = draw_figure(window['-CANVAS-'].TKCanvas,torta_pop(estrai_pop_provincia(l)))
+            window['-TEXT-'].update('Popolazione Italiana Per Provincia nella Regione ' + inp)
+        if inp1 in pop_provincia:
+            window['-PRO1-'].update(str(pop_provincia[inp1]))
+    elif event == 'Popolazione per Comune Nella Tua Provincia':
+        zona_invisible()
+        regione_invisible()
+        provincia_invisible()
+        comune_visible()
+        inp = values['-IN2-']
+        if len(inp) == 0:
+            window['-ER-'].update('Nessuna Provincia Selezionata!')
+        if inp not in estrai_lista_provincie(dati) and len(inp) != 0:
+            window['-ER-'].update('Seleziona una Provincia Valida!')
+        if inp in estrai_lista_provincie(dati):
+            if fig_agg is not None:
+                delete_fig_agg(fig_agg)
+            l = estrai_provincia(dati,inp)
+            fig_agg = draw_figure(window['-CANVAS-'].TKCanvas,torta_pop(estrai_pop_comune(l)))
+            window['-TEXT-'].update('Popolazione Italiana Per Comune nella Provincia ' + inp)
+        inp3 = values['-IN3-']
+        pop_comune = estrai_info_pop_comune(dati,inp3)
+        if inp3 in lista_comuni:
+            window['-COM1-'].update(str(estrai_info_pop_comune(dati,inp3)))
+        
+
+        
+
+window.close()
